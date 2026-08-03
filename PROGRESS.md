@@ -5,11 +5,11 @@ TODAS as fases devem seguir a skill `task-board-kanban-builder` (carregada no cr
 Ela contém o schema de dados, fluxo de UX, features, boas práticas e pitfalls.
 A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 
-## Status: Fase 1 pendente (pesquisa)
+## Status: Fase 1 concluída — próxima: Fase 2
 
 ## Fases
 
-### Fase 1 — Pesquisa de mercado [PENDENTE]
+### Fase 1 — Pesquisa de mercado [CONCLUÍDO — 03/08/2026]
 - Pesquisar: Trello, Asana, Notion, Linear, Monday — features de quadros Kanban
 - Identificar o que faz um bom drag & drop UX
 - Validar schema de dados contra apps reais
