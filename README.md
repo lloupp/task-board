@@ -42,7 +42,6 @@ task-board/
 │   ├── summary.js          — resumo e mini gráfico de produtividade
 │   ├── toast.js            — toast notifications
 │   └── utils.js            — storage, escape HTML, helpers de data
-├── .github/workflows/deploy.yml — GitHub Actions (deploy automático)
 └── .nojekyll               — desativa Jekyll no GitHub Pages
 ```
 

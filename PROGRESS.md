@@ -59,10 +59,10 @@ A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 - Commit: `feat: polimento e UX`
 
 ### Fase 8 — Deploy no GitHub Pages [CONCLUÍDO — 04/08/2026]
-- Configurar GitHub Pages via GitHub Actions (build_type: workflow)
-- Criar workflow .github/workflows/deploy.yml (deploy automático no push para master)
+- Ativar GitHub Pages no repo (build_type: legacy, servindo direto da branch master)
 - Adicionar .nojekyll para evitar processamento Jekyll
 - Atualizar README com link de deploy e documentação completa
+- Deploy online: https://lloupp.github.io/task-board/
 - Commit: `deploy: GitHub Pages`
 
 ## Regras do cron
