@@ -143,11 +143,6 @@ export function moveTask(id, newStatus, newOrder) {
     task.order = destTasks.length;
   }
 
-  destTasks.forEach((t, i) => {
-    if (t.id === id) return;
-    // já ajustado acima
-  });
-
   saveTasks(tasks);
 }
 

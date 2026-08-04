@@ -597,6 +597,81 @@ body {
   background: rgba(239, 68, 68, 0.25);
 }
 
+/* ============ DRAG & DROP (Fase 4) ============ */
+
+/* Card sendo arrastado (desktop) */
+.card.dragging {
+  opacity: 0.4;
+  transform: rotate(2deg) scale(0.98);
+  cursor: grabbing;
+}
+
+/* Coluna destacada durante drag-over */
+.column.drag-over {
+  border-color: var(--accent);
+  background: rgba(245, 158, 11, 0.04);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+.column.drag-over .column-body {
+  border-top: 2px solid var(--accent);
+}
+
+/* Placeholder fantasma — mostra onde o card vai pousar */
+.card-placeholder {
+  height: 54px;
+  margin-bottom: 10px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.06);
+  animation: placeholder-pulse 1.5s ease-in-out infinite;
+}
+
+.card-placeholder-inner {
+  height: 100%;
+}
+
+@keyframes placeholder-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Card fantasma para touch (mobile) */
+.ghost-card {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.85;
+  transform: rotate(2deg) scale(0.98);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: none;
+}
+
+/* Animação de pouso — card "pousa" suavemente após drop */
+@keyframes card-drop {
+  0% {
+    transform: translateY(-6px) scale(1.02);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.card.dropped {
+  animation: card-drop 0.25s ease-out;
+}
+
+/* Cursor grab/grabbing já definido no card base, reforçando */
+.card[draggable="true"] {
+  cursor: grab;
+}
+
+.card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
 /* ============ RESPONSIVE ============ */
 @media (max-width: 768px) {
   .board {

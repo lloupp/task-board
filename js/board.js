@@ -121,7 +121,7 @@ export function renderCard(task) {
   const escapedDesc = escapeHTML(task.description);
 
   return `
-    <div class="card priority-${priority}" data-task-id="${task.id}">
+    <div class="card priority-${priority}" data-task-id="${task.id}" draggable="true">
       <div class="card-priority-bar"></div>
       <div class="card-content">
         <div class="card-header-row">

@@ -7,6 +7,7 @@ import {
   getTaskById,
   updateTask,
   deleteTask,
+  moveTask,
   parseTags,
 } from './tasks.js';
 import { renderBoard } from './board.js';
@@ -15,6 +16,12 @@ import { renderBoard } from './board.js';
  * Estado da UI: 'editId' é null quando criando nova tarefa, string quando editando.
  */
 let editId = null;
+
+/**
+ * ID da tarefa que acabou de ser movida via drag & drop (para animação de pouso).
+ * @type {string|null}
+ */
+let animateDroppedCard = null;
 
 /**
  * Atualiza o badge de contagem total de tarefas no header.
@@ -56,6 +63,15 @@ function render() {
   `;
 
   updateHeaderBadge(tasks);
+
+  // Anima o card que acabou de ser solto via drag & drop
+  if (animateDroppedCard) {
+    const droppedCard = document.querySelector(`[data-task-id="${animateDroppedCard}"]`);
+    if (droppedCard) {
+      droppedCard.classList.add('dropped');
+    }
+    animateDroppedCard = null;
+  }
 
   // Reanexa o modal se estava aberto
   if (modalOpen) {
@@ -242,6 +258,12 @@ function handleCardClick(e) {
   // Ignora cliques no botão delete
   if (e.target.closest('.card-delete-btn')) return;
 
+  // Suprime click se um drag acabou de terminar (evita abrir modal após arrastar)
+  if (suppressNextClick) {
+    suppressNextClick = false;
+    return;
+  }
+
   const card = e.target.closest('.card');
   if (!card) return;
 
@@ -262,11 +284,360 @@ function handleKeydown(e) {
   }
 }
 
+// ============================================================
+// DRAG & DROP — Fase 4
+// ============================================================
+
+/** Estado de drag atual (elemento arrastado + seu ID). */
+let dragData = null;  // { id: string, element: HTMLElement }
+
+/** Flag: um drag ocorceu neste turno — suprime o próximo click (evita abrir modal após drag). */
+let suppressNextClick = false;
+
+/**
+ * Encontra a column-body mais próxima de um elemento.
+ * @param {HTMLElement} el
+ * @returns {HTMLElement|null}
+ */
+function findColumnBody(el) {
+  return el ? el.closest('.column-body') : null;
+}
+
+/**
+ * Calcula onde soltar o card dentro da coluna-alvo com base na posição Y
+ * do cursor em relação aos cards existentes.
+ * @param {HTMLElement} columnBody - elemento .column-body de destino
+ * @param {number} clientY - posição Y do cursor
+ * @returns {number} índice (0-based) onde o card deve ser inserido
+ */
+function calcDropIndex(columnBody, clientY) {
+  const cards = Array.from(columnBody.querySelectorAll('.card:not(.dragging)'));
+  if (cards.length === 0) return 0;
+
+  for (let i = 0; i < cards.length; i++) {
+    const rect = cards[i].getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (clientY < midY) {
+      return i;
+    }
+  }
+  return cards.length;
+}
+
+// ---------- Drag (desktop, HTML5 Drag API) ----------
+
+/**
+ * Inicia o drag de um card.
+ * @param {DragEvent} e
+ */
+function handleDragStart(e) {
+  const card = e.target.closest('.card');
+  if (!card || card.getAttribute('draggable') !== 'true') return;
+
+  dragData = { id: card.dataset.taskId, element: card };
+  card.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', card.dataset.taskId);
+}
+
+/**
+ * Permite o drop e destaca a coluna-alvo.
+ * Calcula e mostra um placeholder visual na posição de drop.
+ * @param {DragEvent} e
+ */
+function handleDragOver(e) {
+  if (!dragData) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+
+  const colBody = findColumnBody(e.target);
+  if (!colBody) return;
+
+  // Destaca a coluna inteira
+  colBody.closest('.column').classList.add('drag-over');
+
+  // Remove placeholder anterior
+  removePlaceholder();
+
+  // Calcula posição e insere placeholder
+  const dropIndex = calcDropIndex(colBody, e.clientY);
+  const placeholder = createPlaceholder();
+  const cards = Array.from(colBody.querySelectorAll('.card:not(.dragging)'));
+
+  if (dropIndex >= cards.length) {
+    colBody.appendChild(placeholder);
+  } else {
+    colBody.insertBefore(placeholder, cards[dropIndex]);
+  }
+}
+
+/**
+ * Remove destaque da coluna ao sair.
+ * @param {DragEvent} e
+ */
+function handleDragLeave(e) {
+  if (!dragData) return;
+
+  const colBody = findColumnBody(e.target);
+  if (!colBody) return;
+
+  // Só remove destaque se realmente saiu da coluna (não entrou em um filho)
+  const related = e.relatedTarget;
+  if (related && colBody.contains(related)) return;
+  if (related && colBody.closest('.column') === related.closest('.column')) return;
+
+  colBody.closest('.column').classList.remove('drag-over');
+}
+
+/**
+ * Executa o drop — move a tarefa para a nova coluna/posição.
+ * @param {DragEvent} e
+ */
+function handleDrop(e) {
+  if (!dragData) return;
+  e.preventDefault();
+
+  const colBody = findColumnBody(e.target);
+  if (!colBody) return;
+
+  const newStatus = colBody.dataset.status;
+  const dropIndex = calcDropIndex(colBody, e.clientY);
+  const taskId = dragData.id;
+  const task = getTaskById(taskId);
+
+  if (task && task.status !== newStatus) {
+    // Moveu entre colunas
+    moveTask(taskId, newStatus, dropIndex);
+    animateDroppedCard = taskId;
+  } else if (task && task.status === newStatus) {
+    // Reordenou dentro da mesma coluna
+    moveTask(taskId, newStatus, dropIndex);
+    animateDroppedCard = taskId;
+  }
+
+  // Limpeza visual
+  colBody.closest('.column').classList.remove('drag-over');
+  removePlaceholder();
+
+  render();
+}
+
+/**
+ * Limpa o estado após o drag terminar (mesmo se cancelado).
+ * @param {DragEvent} e
+ */
+function handleDragEnd(e) {
+  if (!dragData) return;
+
+  dragData.element.classList.remove('dragging');
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  removePlaceholder();
+  dragData = null;
+  suppressNextClick = true;
+}
+
+// ---------- Placeholder visual ----------
+
+/**
+ * Cria o placeholder "fantasma" que mostra onde o card vai pousar.
+ * @returns {HTMLElement}
+ */
+function createPlaceholder() {
+  const ph = document.createElement('div');
+  ph.className = 'card-placeholder';
+  ph.innerHTML = '<div class="card-placeholder-inner"></div>';
+  return ph;
+}
+
+/**
+ * Remove qualquer placeholder existente.
+ */
+function removePlaceholder() {
+  document.querySelectorAll('.card-placeholder').forEach(el => el.remove());
+}
+
+// ---------- Touch fallback (mobile) ----------
+
+/**
+ * Estado de touch-drag para mobile.
+ * @type {{ id: string, ghost: HTMLElement, startX: number, startY: number, origColumn: HTMLElement }|null}
+ */
+let touchData = null;
+
+/**
+ * Inicia o touch drag.
+ * @param {TouchEvent} e
+ */
+function handleTouchStart(e) {
+  if (e.target.closest('.card-delete-btn')) return;  // não interfere no botão delete
+  const card = e.target.closest('.card');
+  if (!card) return;
+
+  const touch = e.touches[0];
+  const rect = card.getBoundingClientRect();
+
+  touchData = {
+    id: card.dataset.taskId,
+    ghost: null,
+    startX: touch.clientX,
+    startY: touch.clientY,
+    origColumn: card.closest('.column-body'),
+    originalCard: card,
+    offsetX: touch.clientX - rect.left,
+    offsetY: touch.clientY - rect.top,
+    moved: false,
+  };
+
+  // Não preventDefault aqui — deixamos o scroll funcionar até o usuário mover o suficiente
+}
+
+/**
+ * Move o card fantasma durante o touch drag.
+ * @param {TouchEvent} e
+ */
+function handleTouchMove(e) {
+  if (!touchData) return;
+
+  const touch = e.touches[0];
+  const dx = touch.clientX - touchData.startX;
+  const dy = touch.clientY - touchData.startY;
+
+  // Se ainda não moveu o suficiente, não inicia drag (evita conflito com scroll)
+  if (!touchData.moved) {
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      touchData.moved = true;
+    } else {
+      return;
+    }
+  }
+
+  e.preventDefault();  // agora sim, impede o scroll
+
+  // Cria o fantasma na primeira vez
+  if (!touchData.ghost) {
+    const card = touchData.originalCard;
+    const ghost = card.cloneNode(true);
+    ghost.className = 'card ghost-card';
+    ghost.style.width = card.getBoundingClientRect().width + 'px';
+    document.body.appendChild(ghost);
+    touchData.ghost = ghost;
+    card.classList.add('dragging');
+
+    // Esconde o card original
+    card.style.opacity = '0.3';
+  }
+
+  // Posiciona o fantasma
+  const ghost = touchData.ghost;
+  ghost.style.left = (touch.clientX - touchData.offsetX) + 'px';
+  ghost.style.top = (touch.clientY - touchData.offsetY) + 'px';
+
+  // Detecta coluna sob o dedo
+  const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+  const colBody = findColumnBody(elBelow);
+
+  // Limpa destacamentos anteriores
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  removePlaceholder();
+
+  if (colBody) {
+    colBody.closest('.column').classList.add('drag-over');
+    const dropIndex = calcDropIndex(colBody, touch.clientY);
+    const placeholder = createPlaceholder();
+    const cards = Array.from(colBody.querySelectorAll('.card:not(.dragging)'));
+
+    if (dropIndex >= cards.length) {
+      colBody.appendChild(placeholder);
+    } else {
+      colBody.insertBefore(placeholder, cards[dropIndex]);
+    }
+  }
+}
+
+/**
+ * Finaliza o touch drag — solta o card na coluna detectada.
+ * @param {TouchEvent} e
+ */
+function handleTouchEnd(e) {
+  if (!touchData) return;
+
+  const touch = e.changedTouches[0];
+
+  if (touchData.moved) {
+    const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+    const colBody = findColumnBody(elBelow);
+
+    if (colBody) {
+      const newStatus = colBody.dataset.status;
+      const dropIndex = calcDropIndex(colBody, touch.clientY);
+      moveTask(touchData.id, newStatus, dropIndex);
+      animateDroppedCard = touchData.id;
+      render();
+    } else {
+      // Volta ao normal se não soltou em uma coluna
+      if (touchData.originalCard) {
+        touchData.originalCard.style.opacity = '';
+      }
+    }
+  }
+
+  // Limpeza
+  if (touchData.ghost) touchData.ghost.remove();
+  if (touchData.originalCard) {
+    touchData.originalCard.classList.remove('dragging');
+    touchData.originalCard.style.opacity = '';
+  }
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  removePlaceholder();
+  touchData = null;
+  suppressNextClick = true;
+}
+
+/**
+ * Cancela o touch drag (ex.: interrompido pelo sistema).
+ */
+function handleTouchCancel() {
+  if (!touchData) return;
+
+  if (touchData.ghost) touchData.ghost.remove();
+  if (touchData.originalCard) {
+    touchData.originalCard.classList.remove('dragging');
+    touchData.originalCard.style.opacity = '';
+  }
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  removePlaceholder();
+  touchData = null;
+}
+
+// ---------- Drag registration ----------
+
+/**
+ * Registra todos os event listeners de drag & drop (desktop + touch).
+ * Usa delegation no container #board para funcionar após re-renders.
+ */
+function registerDragHandlers() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  // Desktop (HTML5 Drag API) — delegação no #app (não é destruído no re-render)
+  app.addEventListener('dragstart', handleDragStart);
+  app.addEventListener('dragover', handleDragOver);
+  app.addEventListener('dragleave', handleDragLeave);
+  app.addEventListener('drop', handleDrop);
+  app.addEventListener('dragend', handleDragEnd);
+
+  // Mobile (touch fallback)
+  app.addEventListener('touchstart', handleTouchStart, { passive: true });
+  app.addEventListener('touchmove', handleTouchMove, { passive: false });
+  app.addEventListener('touchend', handleTouchEnd);
+  app.addEventListener('touchcancel', handleTouchCancel);
+}
+
 /**
  * Inicialização — renderiza a UI e registra eventos globais.
  */
 function init() {
-  console.log('Task Board — Fase 3: CRUD de Tarefas');
+  console.log('Task Board — Fase 4: Drag & Drop');
   render();
 
   // Event delegation no container principal
@@ -275,6 +646,9 @@ function init() {
     app.addEventListener('click', handleClick);
     app.addEventListener('click', handleCardClick);
   }
+
+  // Drag & drop (desktop + touch)
+  registerDragHandlers();
 
   // Teclado
   document.addEventListener('keydown', handleKeydown);
