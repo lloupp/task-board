@@ -5,7 +5,7 @@ TODAS as fases devem seguir a skill `task-board-kanban-builder` (carregada no cr
 Ela contém o schema de dados, fluxo de UX, features, boas práticas e pitfalls.
 A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 
-## Status: Fase 6 concluída — próxima: Fase 7
+## Status: Fase 7 concluída — próxima: Fase 8
 
 ## Fases
 
@@ -51,7 +51,7 @@ A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 - Mini gráfico de produtividade (Canvas)
 - Commit: `feat: resumo e indicadores`
 
-### Fase 7 — Polimento e UX [PENDENTE]
+### Fase 7 — Polimento e UX [CONCLUÍDO — 04/08/2026]
 - Animações, toast, modal de confirmação
 - Responsividade mobile (colunas horizontais com scroll)
 - Keyboard shortcuts (N = nova, / = busca)
