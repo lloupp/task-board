@@ -1032,3 +1032,350 @@ body {
     gap: 12px;
   }
 }
+
+/* ============ TOAST NOTIFICATIONS (Fase 7) ============ */
+
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  max-width: 360px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  min-width: 260px;
+  max-width: 360px;
+}
+
+.toast.toast-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast.toast-leaving {
+  transform: translateX(120%);
+  opacity: 0;
+}
+
+.toast-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  line-height: 1.4;
+  /* Truncate long messages */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color var(--transition);
+}
+
+.toast-close:hover {
+  color: var(--text-primary);
+}
+
+/* Toast types */
+.toast-success {
+  border-left: 4px solid var(--green);
+}
+.toast-error {
+  border-left: 4px solid var(--red);
+}
+.toast-warning {
+  border-left: 4px solid var(--accent);
+}
+.toast-info {
+  border-left: 4px solid var(--blue);
+}
+
+/* ============ CONFIRM MODAL (Fase 7) ============ */
+
+.confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: fade-in 0.15s ease;
+}
+
+.confirm-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  animation: slide-up 0.2s ease;
+  overflow: hidden;
+}
+
+.confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 8px;
+}
+
+.confirm-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.confirm-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.confirm-message {
+  padding: 4px 24px 20px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  padding: 0 24px 20px 24px;
+  justify-content: flex-end;
+}
+
+.confirm-actions .btn-secondary,
+.confirm-actions .btn-danger {
+  padding: 9px 18px;
+  font-size: 0.82rem;
+}
+
+/* ============ KEYBOARD SHORTCUT HINT (Fase 7) ============ */
+
+.kbd-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 0.68rem;
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  line-height: 1.4;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* ============ FORM VALIDATION (Fase 7) ============ */
+
+.form-input.invalid,
+.form-textarea.invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+}
+
+.form-error {
+  display: none;
+  font-size: 0.72rem;
+  color: var(--red);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.form-error.visible {
+  display: block;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* ============ CARD TRANSITIONS (Fase 7) ============ */
+
+.card {
+  /* Card enter animation is applied via .card-enter-reveal class to avoid
+     every card re-animating on every render. */
+}
+
+.card-enter-reveal {
+  animation: card-enter 0.2s ease-out;
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth hover lift */
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Modal scale animation improvement */
+.modal {
+  animation: modal-scale-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modal-scale-in {
+  from {
+    transform: scale(0.92) translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ============ RESPONSIVE: Horizontal scroll columns (Fase 7) ============ */
+
+/*
+ * Mobile: colunas empilhadas horizontalmente com scroll horizontal.
+ * Em vez de empilhar verticalmente (que força muito scroll), as colunas
+ * ficam lado a lado e o usuário desliza horizontalmente — padrão de apps
+ * Kanban mobile (Trello, Linear).
+ */
+@media (max-width: 768px) {
+  .board {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+    padding: 16px;
+    max-width: 100vw;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .column {
+    flex-shrink: 0;
+    width: 85vw;
+    max-width: 340px;
+    scroll-snap-align: start;
+    min-height: 300px;
+  }
+
+  .column-body {
+    min-height: 120px;
+    max-height: 50vh;
+  }
+
+  /* Hide scrollbar but keep scroll functional */
+  .board::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .board::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .board::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 3px;
+  }
+
+  /* Toast adjustments for mobile */
+  .toast-container {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+
+  .toast {
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* Keyboard hints hidden on mobile */
+  .kbd-hint {
+    display: none;
+  }
+
+  /* Confirm modal full width */
+  .confirm-modal {
+    width: 96%;
+  }
+}
+
+@media (max-width: 480px) {
+  .column {
+    width: 90vw;
+  }
+
+  .board {
+    padding: 10px;
+    gap: 10px;
+  }
+}
+
+/* ============ FOCUS VISIBLE (Accessibility, Fase 7) ============ */
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove outline for mouse users */
+*:focus:not(:focus-visible) {
+  outline: none;
+}

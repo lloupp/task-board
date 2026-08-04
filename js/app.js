@@ -1,4 +1,4 @@
-// app.js — Lógica principal do Task Board (CRUD de tarefas + filtros)
+// app.js — Lógica principal do Task Board (Fase 7: Polimento e UX)
 
 import { loadFromStorage } from './utils.js';
 import {
@@ -19,11 +19,19 @@ import {
   applyFilters,
 } from './filters.js';
 import { renderSummaryPanel, refreshChart } from './summary.js';
+import { showToast } from './toast.js';
 
 /**
  * Estado da UI: 'editId' é null quando criando nova tarefa, string quando editando.
  */
 let editId = null;
+
+/**
+ * Flag para aplicar animação de entrada dos cards apenas na primeira renderização.
+ * Evita que TODOS os cards re-animem a cada re-render (drag, CRUD, filtros).
+ * @type {boolean}
+ */
+let firstRender = true;
 
 /**
  * ID da tarefa que acabou de ser movida via drag & drop (para animação de pouso).
@@ -148,6 +156,7 @@ function render() {
       </h1>
       <button class="btn-new-task" data-action="new-task">+ Nova Tarefa</button>
       <span class="header-badge" id="header-badge">Nenhuma tarefa</span>
+      <span class="kbd-hint"><span class="kbd">N</span> nova &nbsp; <span class="kbd">/</span> buscar</span>
     </header>
     ${renderFilterBar(allTasks)}
     ${renderSummaryPanel(allTasks)}
@@ -189,6 +198,18 @@ function render() {
       droppedCard.classList.add('dropped');
     }
     animateDroppedCard = null;
+  }
+
+  // Anima cards recém-criados ou atualizados (entram suavemente)
+  // Usa o campo order=0 ou createdAt recente para identificar.
+  // Alternativa: aplica a animação a todos os cards na primeira renderização
+  // e após operações de CRUD via uma flag. Aqui, vamos simplemente aplicar
+  // a animação de entrada apenas na primeira carga (init) para evitar flashing.
+  if (firstRender) {
+    document.querySelectorAll('.card').forEach(card => {
+      card.classList.add('card-enter-reveal');
+    });
+    firstRender = false;
   }
 
   // Desenha o mini gráfico de produtividade no canvas do painel de resumo
@@ -294,13 +315,29 @@ function closeModal() {
 
 /**
  * Processa o submit do formulário (criar ou editar tarefa).
+ * Inclui validação completa dos campos (Fase 7).
  * @param {Event} e
  */
 function handleFormSubmit(e) {
   e.preventDefault();
 
-  const title = document.getElementById('form-title').value.trim();
-  if (!title) return; // required já valida mas por segurança
+  const titleInput = document.getElementById('form-title');
+  const title = titleInput.value.trim();
+
+  // Validação: título é obrigatório
+  if (!title) {
+    showFieldError(titleInput, 'O título é obrigatório');
+    return;
+  }
+
+  // Validação: título muito curto
+  if (title.length < 3) {
+    showFieldError(titleInput, 'O título deve ter pelo menos 3 caracteres');
+    return;
+  }
+
+  // Limpa estado de erro
+  clearFieldError(titleInput);
 
   const data = {
     title,
@@ -315,8 +352,10 @@ function handleFormSubmit(e) {
 
   if (editId) {
     updateTask(editId, data);
+    showToast('Tarefa atualizada com sucesso', 'success');
   } else {
     createTask(data);
+    showToast('Tarefa criada com sucesso', 'success');
   }
 
   closeModal();
@@ -324,18 +363,145 @@ function handleFormSubmit(e) {
 }
 
 /**
- * Confirma e executa a exclusão de uma tarefa.
+ * Mostra mensagem de erro em um campo do formulário.
+ * @param {HTMLElement} input — elemento do input
+ * @param {string} message — mensagem de erro
+ */
+function showFieldError(input, message) {
+  input.classList.add('invalid');
+
+  // Procura ou cria o elemento de erro
+  let errorEl = input.parentElement.querySelector('.form-error');
+  if (!errorEl) {
+    errorEl = document.createElement('span');
+    errorEl.className = 'form-error';
+    input.parentElement.appendChild(errorEl);
+  }
+  errorEl.textContent = message;
+  errorEl.classList.add('visible');
+
+  // Foca o campo
+  input.focus();
+
+  // Remove erro ao digitar
+  input.addEventListener('input', function handler() {
+    clearFieldError(input);
+    input.removeEventListener('input', handler);
+  });
+}
+
+/**
+ * Limpa o estado de erro de um campo do formulário.
+ * @param {HTMLElement} input
+ */
+function clearFieldError(input) {
+  input.classList.remove('invalid');
+  const errorEl = input.parentElement.querySelector('.form-error');
+  if (errorEl) {
+    errorEl.classList.remove('visible');
+  }
+}
+
+/**
+ * Exibe um modal de confirmação custom (substitui confirm() nativo).
+ * @param {string} title — título do modal
+ * @param {string} message — mensagem descritiva
+ * @param {Function} onConfirm — callback executado ao confirmar
+ * @param {string} [confirmText='Excluir'] — texto do botão de confirmação
+ * @param {string} [icon='🗑️'] — ícone do modal
+ */
+function showConfirmDialog(title, message, onConfirm, confirmText = 'Excluir', icon = '🗑️') {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal">
+      <div class="confirm-header">
+        <span class="confirm-icon">${icon}</span>
+        <span class="confirm-title">${escapeForAttr(title)}</span>
+      </div>
+      <div class="confirm-message">${escapeForAttr(message)}</div>
+      <div class="confirm-actions">
+        <button class="btn-secondary" data-action="confirm-cancel">Cancelar</button>
+        <button class="btn-danger" data-action="confirm-ok">${confirmText}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Fecha ao confirmar
+  overlay.querySelector('[data-action="confirm-ok"]').addEventListener('click', () => {
+    overlay.remove();
+    onConfirm();
+  });
+
+  // Fecha ao cancelar
+  overlay.querySelector('[data-action="confirm-cancel"]').addEventListener('click', () => {
+    overlay.remove();
+  });
+
+  // Fecha ao clicar no backdrop
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  // Foco no botão de cancelar por segurança
+  setTimeout(() => {
+    overlay.querySelector('[data-action="confirm-cancel"]').focus();
+  }, 50);
+}
+
+/**
+ * Confirma e executa a exclusão de uma tarefa via modal custom.
  * @param {string} id
  */
 function handleDelete(id) {
   const task = getTaskById(id);
   if (!task) return;
 
-  if (confirm(`Excluir "${task.title}"?\n\nEsta ação não pode ser desfeita.`)) {
-    deleteTask(id);
-    closeModal();
-    render();
+  showConfirmDialog(
+    'Excluir tarefa',
+    `Deseja realmente excluir "${task.title}"?\n\nEsta ação não pode ser desfeita.`,
+    () => {
+      deleteTask(id);
+      showToast('Tarefa excluída', 'info');
+      closeModal();
+      render();
+    },
+    'Excluir',
+    '🗑️'
+  );
+}
+
+/**
+ * Verifica se o modal tem dados não salvos (está "sujo").
+ * @returns {Promise<boolean>} true se há dados não salvos
+ */
+async function checkModalDirty() {
+  const titleEl = document.getElementById('form-title');
+  if (!titleEl) return false;
+
+  const title = titleEl.value.trim();
+  const desc = document.getElementById('form-description')?.value.trim() || '';
+  const tags = document.getElementById('form-tags')?.value.trim() || '';
+  const assignee = document.getElementById('form-assignee')?.value.trim() || '';
+  const dueDate = document.getElementById('form-dueDate')?.value || '';
+
+  // Se editando, compara com os valores atuais da tarefa
+  if (editId) {
+    const task = getTaskById(editId);
+    if (!task) return false;
+    if (title !== task.title) return true;
+    if (desc !== (task.description || '')) return true;
+    if (tags !== (task.tags || []).join(', ')) return true;
+    if (assignee !== (task.assignee || '')) return true;
+    const taskDue = task.dueDate ? task.dueDate.split('T')[0] : '';
+    if (dueDate !== taskDue) return true;
+    return false;
   }
+
+  // Se criando, basta ter algum conteúdo
+  return !!(title || desc || tags || assignee || dueDate);
 }
 
 /**
@@ -354,9 +520,20 @@ function handleClick(e) {
       openTaskModal(null);
       break;
     case 'modal-close':
-      if (confirm('Deseja cancelar? As alterações não serão salvas.')) {
-        closeModal();
-      }
+      // Se há dados no formulário, pede confirmação; senão, fecha direto
+      checkModalDirty().then(dirty => {
+        if (dirty) {
+          showConfirmDialog(
+            'Cancelar',
+            'As alterações não foram salvas. Deseja continuar?',
+            () => closeModal(),
+            'Cancelar',
+            '⚠️'
+          );
+        } else {
+          closeModal();
+        }
+      });
       break;
     case 'delete-task':
       if (editId) handleDelete(editId);
@@ -396,15 +573,57 @@ function handleCardClick(e) {
 }
 
 /**
- * Trata teclas globais (Escape fecha modal).
+ * Trata teclas globais (keyboard shortcuts da Fase 7).
+ * - Escape: fecha modal ou confirm dialog
+ * - N: abre modal de nova tarefa (se não estiver editando/criando e não estiver em input)
+ * - /: foca no campo de busca (se não estiver em input)
+ * - Enter: submete formulário (já é nativo via <button type="submit">)
  * @param {Event} e
  */
 function handleKeydown(e) {
+  // Escape — fecha modal ou confirm dialog
   if (e.key === 'Escape') {
+    const confirmOverlay = document.querySelector('.confirm-overlay');
+    if (confirmOverlay) {
+      confirmOverlay.remove();
+      return;
+    }
     const overlay = document.querySelector('.modal-overlay');
     if (overlay) {
+      // Escape fecha sem confirmar (rápido)
       closeModal();
+      return;
     }
+    return;
+  }
+
+  // Ignora atalhos se o foco está em um input/textarea/select
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  const isInForm = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+  if (isInForm) return;
+
+  // N — nova tarefa
+  if (e.key === 'n' || e.key === 'N') {
+    // Só se não há modal aberto
+    if (!document.querySelector('.modal-overlay') && !document.querySelector('.confirm-overlay')) {
+      e.preventDefault();
+      openTaskModal(null);
+    }
+    return;
+  }
+
+  // / — foca na busca
+  if (e.key === '/') {
+    if (!document.querySelector('.modal-overlay')) {
+      e.preventDefault();
+      const searchEl = document.getElementById('filter-search');
+      if (searchEl) {
+        searchEl.focus();
+        searchEl.select();
+      }
+    }
+    return;
   }
 }
 
@@ -616,6 +835,8 @@ function handleDrop(e) {
     // Moveu entre colunas
     moveTask(taskId, newStatus, dropIndex);
     animateDroppedCard = taskId;
+    const statusNames = { todo: 'A Fazer', doing: 'Fazendo', done: 'Concluído' };
+    showToast(`Tarefa movida para "${statusNames[newStatus] || newStatus}"`, 'success');
   } else if (task && task.status === newStatus) {
     // Reordenou dentro da mesma coluna
     moveTask(taskId, newStatus, dropIndex);
@@ -779,6 +1000,8 @@ function handleTouchEnd(e) {
       const dropIndex = calcDropIndex(colBody, touch.clientY);
       moveTask(touchData.id, newStatus, dropIndex);
       animateDroppedCard = touchData.id;
+      const statusNames = { todo: 'A Fazer', doing: 'Fazendo', done: 'Concluído' };
+      showToast(`Tarefa movida para "${statusNames[newStatus] || newStatus}"`, 'success');
       render();
     } else {
       // Volta ao normal se não soltou em uma coluna
@@ -844,7 +1067,7 @@ function registerDragHandlers() {
  * Inicialização — renderiza a UI e registra eventos globais.
  */
 function init() {
-  console.log('Task Board — Fase 6: Resumo e Indicadores');
+  console.log('Task Board — Fase 7: Polimento e UX');
 
   // Carrega filtros salvos do localStorage
   filterState = getFilters();
@@ -864,8 +1087,16 @@ function init() {
   // Drag & drop (desktop + touch)
   registerDragHandlers();
 
-  // Teclado
+  // Teclado — shortcuts globais
   document.addEventListener('keydown', handleKeydown);
+
+  // Submit do formulário via delegation (Enter funciona nativamente,
+  // mas adicionamos captura para validar e mostrar erros customizados)
+  document.addEventListener('submit', (e) => {
+    if (e.target.id === 'task-form') {
+      handleFormSubmit(e);
+    }
+  });
 }
 
 // Inicializa quando o DOM está pronto
