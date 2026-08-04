@@ -1,6 +1,6 @@
-// board.js — Renderização do quadro, colunas e drag & drop
+// board.js — Renderização do quadro, colunas e cards
 
-import { loadFromStorage, saveToStorage } from './utils.js';
+import { loadFromStorage, saveToStorage, formatDate, isOverdue, daysUntilDue } from './utils.js';
 
 /**
  * Configuração padrão de colunas.
@@ -47,7 +47,114 @@ function getEmptyContent(status) {
 }
 
 /**
- * Renderiza uma única coluna.
+ * Mapeamento de prioridade → classe CSS + rótulo + cor.
+ */
+const PRIORITY_META = {
+  baixa:    { label: 'Baixa',    cls: 'priority-baixa',    color: 'var(--green)' },
+  media:    { label: 'Média',    cls: 'priority-media',    color: 'var(--blue)' },
+  alta:     { label: 'Alta',     cls: 'priority-alta',     color: 'var(--accent)' },
+  urgente:  { label: 'Urgente',  cls: 'priority-urgente',  color: 'var(--red)' },
+};
+
+/**
+ * Escapa HTML para evitar XSS em conteúdo inserido via innerHTML.
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeHTML(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Calcula a classe CSS do badge de prazo com base no warning gradual.
+ * Verde (>3 dias) → amarelo (1–3 dias) → vermelho (hoje ou atrasado).
+ * @param {string} dueDate
+ * @returns {string} classe CSS
+ */
+function getDueDateClass(dueDate) {
+  if (!dueDate) return '';
+  if (isOverdue(dueDate)) return 'due-overdue';
+  const days = daysUntilDue(dueDate);
+  if (days === 0) return 'due-today';
+  if (days <= 3) return 'due-soon';
+  return 'due-ok';
+}
+
+/**
+ * Renderiza as tags de uma tarefa como badges.
+ * @param {Array<string>} tags
+ * @returns {string} HTML
+ */
+function renderTags(tags) {
+  if (!tags || tags.length === 0) return '';
+  return `<div class="card-tags">${tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>`;
+}
+
+/**
+ * Renderiza o badge de prazo de uma tarefa.
+ * @param {string} dueDate
+ * @returns {string} HTML
+ */
+function renderDueDate(dueDate) {
+  if (!dueDate) return '';
+  const cls = getDueDateClass(dueDate);
+  const label = formatDate(dueDate);
+  return `<span class="card-due ${cls}">📅 ${label}</span>`;
+}
+
+/**
+ * Renderiza um card de tarefa completo com prioridade visual, tags e prazo.
+ * Botão de exclusão aparece no hover do card.
+ * @param {Object} task
+ * @returns {string} HTML do card
+ */
+export function renderCard(task) {
+  const priority = task.priority || 'media';
+  const meta = PRIORITY_META[priority] || PRIORITY_META.media;
+  const escapedTitle = escapeHTML(task.title);
+  const escapedDesc = escapeHTML(task.description);
+
+  return `
+    <div class="card priority-${priority}" data-task-id="${task.id}">
+      <div class="card-priority-bar"></div>
+      <div class="card-content">
+        <div class="card-header-row">
+          <div class="card-title">${escapedTitle}</div>
+          <button class="card-delete-btn" data-action="delete" data-task-id="${task.id}" title="Excluir tarefa">×</button>
+        </div>
+        ${escapedDesc ? `<div class="card-desc">${escapedDesc}</div>` : ''}
+        ${renderTags(task.tags)}
+        <div class="card-meta">
+          <span class="card-priority-badge ${meta.cls}">
+            <span class="priority-dot" style="background:${meta.color};"></span>
+            ${meta.label}
+          </span>
+          ${renderDueDate(task.dueDate)}
+          ${task.assignee ? `<span class="card-assignee">👤 ${escapeHTML(task.assignee)}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Verifica se uma coluna deve mostrar o botão "+ Nova Tarefa".
+ * Apenas a coluna "todo" (A Fazer) mostra o botão por padrão.
+ * @param {string} status
+ * @returns {boolean}
+ */
+function canAddToColumn(status) {
+  return status === 'todo';
+}
+
+/**
+ * Renderiza uma única coluna com botão de adicionar (se aplicável).
  * @param {Object} column - Configuração da coluna
  * @param {Array} tasks - Lista de tarefas (filtrada para esta coluna)
  * @returns {string} HTML da coluna
@@ -57,7 +164,7 @@ export function renderColumn(column, tasks) {
   const taskCount = tasks.length;
 
   let cardsHTML = '';
-  if (taskCount === 0) {
+  if (taskCount === 0 && !canAddToColumn(column.status)) {
     cardsHTML = `
       <div class="column-empty" data-status="${column.status}">
         <span class="empty-icon">${empty.icon}</span>
@@ -68,6 +175,10 @@ export function renderColumn(column, tasks) {
   } else {
     cardsHTML = tasks.map(task => renderCard(task)).join('');
   }
+
+  const addBtn = canAddToColumn(column.status)
+    ? `<button class="add-task-btn" data-action="new-task" data-status="${column.status}">+ Nova Tarefa</button>`
+    : '';
 
   return `
     <div class="column" data-status="${column.status}" data-column-id="${column.id}">
@@ -81,32 +192,7 @@ export function renderColumn(column, tasks) {
       <div class="column-body" data-status="${column.status}">
         ${cardsHTML}
       </div>
-    </div>
-  `;
-}
-
-/**
- * Renderiza um card de tarefa (placeholder visual — Fase 3 detalha o conteúdo).
- * @param {Object} task
- * @returns {string} HTML do card
- */
-function renderCard(task) {
-  const title = task.title || 'Sem título';
-  const priority = task.priority || 'media';
-  const priorityColor = {
-    baixa: 'var(--green)',
-    media: 'var(--blue)',
-    alta: 'var(--accent)',
-    urgente: 'var(--red)',
-  }[priority] || 'var(--blue)';
-
-  return `
-    <div class="card" data-task-id="${task.id}">
-      <div class="card-title">${title}</div>
-      <div class="card-meta">
-        <span style="width:6px;height:6px;border-radius:50%;background:${priorityColor};flex-shrink:0;"></span>
-        <span style="font-size:0.75rem;color:var(--text-muted);text-transform:capitalize;">${priority}</span>
-      </div>
+      ${addBtn}
     </div>
   `;
 }
