@@ -5,7 +5,7 @@ TODAS as fases devem seguir a skill `task-board-kanban-builder` (carregada no cr
 Ela contém o schema de dados, fluxo de UX, features, boas práticas e pitfalls.
 A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 
-## Status: Fase 1 concluída — próxima: Fase 2
+## Status: Fase 2 concluída — próxima: Fase 3
 
 ## Fases
 
@@ -16,7 +16,7 @@ A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 - ATUALIZAR a skill `task-board-kanban-builder` com aprendizados
 - Commit: `docs: Fase 1 — pesquisa + skill`
 
-### Fase 2 — Layout e Quadro Base [PENDENTE]
+### Fase 2 — Layout e Quadro Base [CONCLUÍDO — 03/08/2026]
 - Header com título "Task Board"
 - 3 colunas: A Fazer | Fazendo | Concluído
 - Empty state em cada coluna
