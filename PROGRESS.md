@@ -5,7 +5,7 @@ TODAS as fases devem seguir a skill `task-board-kanban-builder` (carregada no cr
 Ela contém o schema de dados, fluxo de UX, features, boas práticas e pitfalls.
 A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 
-## Status: Fase 3 concluída — próxima: Fase 4
+## Status: Fase 4 concluída — próxima: Fase 5
 
 ## Fases
 
@@ -30,7 +30,7 @@ A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 - localStorage `tb_tasks`
 - Commit: `feat: CRUD de tarefas`
 
-### Fase 4 — Drag & Drop [PENDENTE]
+### Fase 4 — Drag & Drop [CONCLUÍDO — 04/08/2026]
 - Mover cards entre colunas (HTML5 Drag and Drop API)
 - Reordenar dentro da mesma coluna
 - Atualizar status ao mover
