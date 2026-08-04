@@ -1,4 +1,4 @@
-// app.js — Lógica principal do Task Board (CRUD de tarefas)
+// app.js — Lógica principal do Task Board (CRUD de tarefas + filtros)
 
 import { loadFromStorage } from './utils.js';
 import {
@@ -11,6 +11,13 @@ import {
   parseTags,
 } from './tasks.js';
 import { renderBoard } from './board.js';
+import {
+  getFilters,
+  saveFilters,
+  hasActiveFilters,
+  collectAllTags,
+  applyFilters,
+} from './filters.js';
 
 /**
  * Estado da UI: 'editId' é null quando criando nova tarefa, string quando editando.
@@ -22,6 +29,18 @@ let editId = null;
  * @type {string|null}
  */
 let animateDroppedCard = null;
+
+/**
+ * Estado atual dos filtros (carregado do localStorage na init).
+ * @type {Object|null}
+ */
+let filterState = null;
+
+/**
+ * Timer para debounce da busca textual (evita re-render a cada tecla).
+ * @type {number|null}
+ */
+let searchDebounce = null;
 
 /**
  * Atualiza o badge de contagem total de tarefas no header.
@@ -38,15 +57,87 @@ function updateHeaderBadge(tasks) {
 }
 
 /**
+ * Monta o HTML da barra de filtros (toolbar entre header e board).
+ * @param {Array} allTasks — lista completa de tarefas (para coletar tags)
+ * @returns {string} HTML da toolbar
+ */
+function renderFilterBar(allTasks) {
+  const f = filterState;
+  const tags = collectAllTags(allTasks);
+  const active = hasActiveFilters(f);
+
+  const tagOptions = tags
+    .map(t => `<option value="${t}" ${f.tag === t ? 'selected' : ''}>#${t}</option>`)
+    .join('');
+
+  return `
+    <div class="filter-bar" id="filter-bar">
+      <div class="filter-search-wrap">
+        <span class="filter-search-icon">🔍</span>
+        <input type="text" id="filter-search" class="filter-input" placeholder="Buscar tarefas..."
+          value="${escapeForAttr(f.searchText || '')}" maxlength="200" />
+      </div>
+
+      <select id="filter-tag" class="filter-select">
+        <option value="">Todas as tags</option>
+        ${tagOptions}
+      </select>
+
+      <select id="filter-priority" class="filter-select">
+        <option value="">Todas as prioridades</option>
+        <option value="baixa"   ${f.priority === 'baixa'   ? 'selected' : ''}>🔵 Baixa</option>
+        <option value="media"   ${f.priority === 'media'   ? 'selected' : ''}>🔵 Média</option>
+        <option value="alta"    ${f.priority === 'alta'    ? 'selected' : ''}>🟠 Alta</option>
+        <option value="urgente" ${f.priority === 'urgente' ? 'selected' : ''}>🔴 Urgente</option>
+      </select>
+
+      <select id="filter-due" class="filter-select">
+        <option value="">Todos os prazos</option>
+        <option value="overdue" ${f.dueDate === 'overdue' ? 'selected' : ''}>⚠ Atrasadas</option>
+        <option value="today"   ${f.dueDate === 'today'   ? 'selected' : ''}>📌 Hoje</option>
+        <option value="week"    ${f.dueDate === 'week'    ? 'selected' : ''}>📅 Esta semana</option>
+      </select>
+
+      ${active ? '<button class="filter-clear-btn" data-action="clear-filters">✕ Limpar filtros</button>' : ''}
+
+      <span class="filter-summary" id="filter-summary"></span>
+    </div>
+  `;
+}
+
+/**
+ * Escapa texto para uso seguro dentro de atributos HTML.
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeForAttr(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .replace(/'/g, '&#039;');
+}
+
+/**
  * Renderiza todo o board dentro do container #app.
  */
 function render() {
-  const tasks = getTasks();
+  const allTasks = getTasks();
   const app = document.getElementById('app');
   if (!app) return;
 
   // Preserva o modal se estiver aberto
   const modalOpen = document.querySelector('.modal-overlay');
+
+  // Preserva o valor do campo de busca (pode ter sido digitado desde o último render)
+  const searchEl = document.getElementById('filter-search');
+  const currentSearchVal = searchEl ? searchEl.value : null;
+
+  // Aplica filtros
+  const filteredTasks = applyFilters(allTasks, filterState);
+  const filtersActive = hasActiveFilters(filterState);
 
   app.innerHTML = `
     <header class="app-header">
@@ -57,12 +148,37 @@ function render() {
       <button class="btn-new-task" data-action="new-task">+ Nova Tarefa</button>
       <span class="header-badge" id="header-badge">Nenhuma tarefa</span>
     </header>
-    <main class="board" id="board">
-      ${renderBoard(tasks)}
+    ${renderFilterBar(allTasks)}
+    <main class="board ${filtersActive ? 'filtered' : ''}" id="board">
+      ${renderBoard(filteredTasks)}
     </main>
   `;
 
-  updateHeaderBadge(tasks);
+  updateHeaderBadge(allTasks);
+
+  // Atualiza resumo de filtros
+  const summary = document.getElementById('filter-summary');
+  if (summary) {
+    if (filtersActive) {
+      summary.textContent = `${filteredTasks.length} de ${allTasks.length} tarefas`;
+    } else {
+      summary.textContent = '';
+    }
+  }
+
+  // Restaura foco e cursor do campo de busca se ele estava ativo
+  if (currentSearchVal !== null) {
+    const newSearchEl = document.getElementById('filter-search');
+    if (newSearchEl) {
+      newSearchEl.value = currentSearchVal;
+      // Só restaura foco se o debounce ainda está ativo (usuário estava digitando)
+      if (searchDebounce !== null) {
+        newSearchEl.focus();
+        const len = currentSearchVal.length;
+        newSearchEl.setSelectionRange(len, len);
+      }
+    }
+  }
 
   // Anima o card que acabou de ser solto via drag & drop
   if (animateDroppedCard) {
@@ -245,6 +361,9 @@ function handleClick(e) {
       e.stopPropagation();
       if (taskId) handleDelete(taskId);
       break;
+    case 'clear-filters':
+      clearFilters();
+      break;
     default:
       break;
   }
@@ -282,6 +401,89 @@ function handleKeydown(e) {
       closeModal();
     }
   }
+}
+
+// ============================================================
+// FILTROS E BUSCA — Fase 5
+// ============================================================
+
+/**
+ * Limpa todos os filtros ativos e re-renderiza.
+ */
+function clearFilters() {
+  filterState = { searchText: '', tag: '', priority: '', dueDate: '' };
+  saveFilters(filterState);
+  searchDebounce = null;
+  render();
+}
+
+/**
+ * Atualiza um campo do estado de filtros, salva e re-renderiza.
+ * @param {string} key — nome do campo (searchText, tag, priority, dueDate)
+ * @param {string} value — novo valor
+ * @param {boolean} skipRender — se true, não re-renderiza (para uso no debounce)
+ */
+function updateFilter(key, value, skipRender = false) {
+  filterState[key] = value;
+  saveFilters(filterState);
+  if (!skipRender) {
+    render();
+  }
+}
+
+/**
+ * Handler para digitação no campo de busca (com debounce de 250ms).
+ * Ignora inputs que não sejam do campo de busca (ex.: formulário do modal).
+ * @param {Event} e
+ */
+function handleSearchInput(e) {
+  // Só processa o campo de busca — ignora inputs do modal
+  if (e.target.id !== 'filter-search') return;
+
+  const value = e.target.value;
+  filterState.searchText = value;
+  saveFilters(filterState);
+
+  // Limpa debounce anterior
+  if (searchDebounce !== null) {
+    clearTimeout(searchDebounce);
+  }
+
+  // Agenda re-render após 250ms de inatividade
+  searchDebounce = setTimeout(() => {
+    searchDebounce = null;
+    render();
+  }, 250);
+}
+
+/**
+ * Handler para mudança nos selects de filtro (tag, prioridade, prazo).
+ * @param {Event} e
+ */
+function handleFilterChange(e) {
+  const id = e.target.id;
+  const value = e.target.value;
+
+  if (id === 'filter-tag') {
+    updateFilter('tag', value);
+  } else if (id === 'filter-priority') {
+    updateFilter('priority', value);
+  } else if (id === 'filter-due') {
+    updateFilter('dueDate', value);
+  }
+}
+
+/**
+ * Registra os event listeners para os campos de filtro.
+ * Usa delegation no #app (container estável que sobrevive a re-renders).
+ */
+function registerFilterHandlers() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  app.addEventListener('input', handleSearchInput);
+
+  app.addEventListener('change', handleFilterChange);
 }
 
 // ============================================================
@@ -637,7 +839,11 @@ function registerDragHandlers() {
  * Inicialização — renderiza a UI e registra eventos globais.
  */
 function init() {
-  console.log('Task Board — Fase 4: Drag & Drop');
+  console.log('Task Board — Fase 5: Filtros e Busca');
+
+  // Carrega filtros salvos do localStorage
+  filterState = getFilters();
+
   render();
 
   // Event delegation no container principal
@@ -646,6 +852,9 @@ function init() {
     app.addEventListener('click', handleClick);
     app.addEventListener('click', handleCardClick);
   }
+
+  // Filtros e busca (delegation no container estável)
+  registerFilterHandlers();
 
   // Drag & drop (desktop + touch)
   registerDragHandlers();
