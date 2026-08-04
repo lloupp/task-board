@@ -5,7 +5,7 @@ TODAS as fases devem seguir a skill `task-board-kanban-builder` (carregada no cr
 Ela contém o schema de dados, fluxo de UX, features, boas práticas e pitfalls.
 A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 
-## Status: Fase 4 concluída — próxima: Fase 5
+## Status: Fase 5 concluída — próxima: Fase 6
 
 ## Fases
 
@@ -38,7 +38,7 @@ A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 - Salvar ordem automaticamente
 - Commit: `feat: drag and drop`
 
-### Fase 5 — Filtros e Busca [PENDENTE]
+### Fase 5 — Filtros e Busca [CONCLUÍDO — 04/08/2026]
 - Busca por texto (título + descrição)
 - Filtro por tag, prioridade, prazo
 - Limpar filtros
