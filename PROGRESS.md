@@ -5,7 +5,7 @@ TODAS as fases devem seguir a skill `task-board-kanban-builder` (carregada no cr
 Ela contém o schema de dados, fluxo de UX, features, boas práticas e pitfalls.
 A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 
-## Status: Fase 5 concluída — próxima: Fase 6
+## Status: Fase 6 concluída — próxima: Fase 7
 
 ## Fases
 
@@ -44,7 +44,7 @@ A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 - Limpar filtros
 - Commit: `feat: filtros e busca`
 
-### Fase 6 — Resumo e Indicadores [PENDENTE]
+### Fase 6 — Resumo e Indicadores [CONCLUÍDO — 04/08/2026]
 - Contador por coluna (badge no header)
 - Tarefas atrasadas (destaque visual)
 - Concluídas na semana (contador)
