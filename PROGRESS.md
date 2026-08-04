@@ -5,7 +5,7 @@ TODAS as fases devem seguir a skill `task-board-kanban-builder` (carregada no cr
 Ela contém o schema de dados, fluxo de UX, features, boas práticas e pitfalls.
 A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 
-## Status: Fase 7 concluída — próxima: Fase 8
+## Status: Projeto completo (8 fases)
 
 ## Fases
 
@@ -58,10 +58,11 @@ A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 - Validação completa
 - Commit: `feat: polimento e UX`
 
-### Fase 8 — Deploy no GitHub Pages [PENDENTE]
-- Configurar GitHub Pages
-- Verificar funcionamento
-- Atualizar README
+### Fase 8 — Deploy no GitHub Pages [CONCLUÍDO — 04/08/2026]
+- Configurar GitHub Pages via GitHub Actions (build_type: workflow)
+- Criar workflow .github/workflows/deploy.yml (deploy automático no push para master)
+- Adicionar .nojekyll para evitar processamento Jekyll
+- Atualizar README com link de deploy e documentação completa
 - Commit: `deploy: GitHub Pages`
 
 ## Regras do cron
