@@ -5,7 +5,7 @@ TODAS as fases devem seguir a skill `task-board-kanban-builder` (carregada no cr
 Ela contém o schema de dados, fluxo de UX, features, boas práticas e pitfalls.
 A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 
-## Status: Fase 2 concluída — próxima: Fase 3
+## Status: Fase 3 concluída — próxima: Fase 4
 
 ## Fases
 
@@ -23,7 +23,7 @@ A Fase 1 (pesquisa) pode ATUALIZAR essa skill com novos conhecimentos.
 - CSS: grid de colunas, cards, tema escuro, responsivo
 - Commit: `feat: layout e quadro base`
 
-### Fase 3 — CRUD de Tarefas [PENDENTE]
+### Fase 3 — CRUD de Tarefas [CONCLUÍDO — 03/08/2026]
 - Formulário: título, descrição, prioridade, tags, prazo
 - Card visual com prioridade colorida, tags, prazo
 - Editar (modal) e excluir com confirmação
