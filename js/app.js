@@ -18,6 +18,7 @@ import {
   collectAllTags,
   applyFilters,
 } from './filters.js';
+import { renderSummaryPanel, refreshChart } from './summary.js';
 
 /**
  * Estado da UI: 'editId' é null quando criando nova tarefa, string quando editando.
@@ -149,6 +150,7 @@ function render() {
       <span class="header-badge" id="header-badge">Nenhuma tarefa</span>
     </header>
     ${renderFilterBar(allTasks)}
+    ${renderSummaryPanel(allTasks)}
     <main class="board ${filtersActive ? 'filtered' : ''}" id="board">
       ${renderBoard(filteredTasks)}
     </main>
@@ -188,6 +190,9 @@ function render() {
     }
     animateDroppedCard = null;
   }
+
+  // Desenha o mini gráfico de produtividade no canvas do painel de resumo
+  refreshChart();
 
   // Reanexa o modal se estava aberto
   if (modalOpen) {
@@ -839,7 +844,7 @@ function registerDragHandlers() {
  * Inicialização — renderiza a UI e registra eventos globais.
  */
 function init() {
-  console.log('Task Board — Fase 5: Filtros e Busca');
+  console.log('Task Board — Fase 6: Resumo e Indicadores');
 
   // Carrega filtros salvos do localStorage
   filterState = getFilters();
